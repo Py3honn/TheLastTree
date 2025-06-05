@@ -138,7 +138,6 @@ while running:
                     running = False
 
     screen.fill("darkgrey")
-
     if not game_over:
         if not endless_mode:
             # Normal mode
