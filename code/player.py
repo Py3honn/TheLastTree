@@ -58,7 +58,7 @@ class Player(pygame.sprite.Sprite):
         if dx > 0 and dy > 0: return "right_down"
         if dx < 0: return "left_down"
         if dx > 0: return "right_down"
-        return self.direction
+        return self.direction  # Return last direction if no new input
 
     def update(self, dt):
         keys = pygame.key.get_pressed()

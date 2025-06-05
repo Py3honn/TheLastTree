@@ -6,7 +6,7 @@ class Tree(pygame.sprite.Sprite):
 
         # Scale tree image if needed
         self.original_image = image
-        if scale != 1:
+        if scale != 2:
             width = int(image.get_width() * scale)
             height = int(image.get_height() * scale)
             self.original_image = pygame.transform.scale(image, (width, height))

@@ -15,9 +15,21 @@ screen = pygame.display.set_mode((window_width, window_height))
 pygame.display.set_caption("TheLastTree")
 clock = pygame.time.Clock()
 running = True
+background_image = pygame.image.load("TheLastTree/code/assets/bg/mud.jpg").convert()
+background_image = pygame.transform.scale(background_image, (window_width, window_height))
 
 # Load assets
 tree_image = pygame.image.load("TheLastTree/code/assets/tree/tree.png").convert_alpha()
+# Thunder sound
+thunder_sound = pygame.mixer.Sound("TheLastTree/code/assets/sounds/thunder.mp3")
+
+# Lightning vars
+lightning_active = False
+lightning_start_time = 0
+lightning_interval = random.randint(5000, 15000)
+last_lightning_time = 0
+lightning_flash_duration = 100
+
 
 sprite_sheets = {
     "down": pygame.image.load("TheLastTree/code/assets/character/Walk/walk_down.png").convert_alpha(),
@@ -104,13 +116,26 @@ while running:
     dt = clock.tick(60) / 1000
     now = pygame.time.get_ticks()
 
+    # Lightning logic
+    if now - last_lightning_time >= lightning_interval:
+        lightning_active = True
+        lightning_start_time = now
+        last_lightning_time = now
+        lightning_interval = random.randint(5000, 15000)
+        for zombie in zombie_group:
+            zombie.take_damage(10)
+
+    if lightning_active and now - lightning_start_time > lightning_flash_duration:
+        lightning_active = False
+        thunder_sound.play()
+
+    # ✅ Event loop must always run
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         if game_over:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_r:
-                    # Restart
                     all_sprites.empty()
                     barriers.empty()
                     zombie_group.empty()
@@ -121,10 +146,9 @@ while running:
                     game_over = False
                     endless_mode = False
                     create_tree()
-                    player = Player(all_sprites, window_width, window_height, sprite_sheets, barriers, zombie_group)
+                    player = Player(all_sprites, window_width, window_height, sprite_sheets, idle_sheets, barriers, zombie_group)
                     player.rect.centery += 150
                 elif event.key == pygame.K_e:
-                    # Endless mode (no tree)
                     all_sprites.empty()
                     barriers.empty()
                     zombie_group.empty()
@@ -132,15 +156,23 @@ while running:
                     endless_mode = True
                     wave = final_wave_reached
                     zombies_spawned = 0
-                    player = Player(all_sprites, window_width, window_height, sprite_sheets, barriers, zombie_group)
+                    player = Player(all_sprites, window_width, window_height, sprite_sheets, idle_sheets, barriers, zombie_group)
                     player.rect.centery += 150
                 elif event.key == pygame.K_ESCAPE:
                     running = False
 
-    screen.fill("darkgrey")
+    screen.blit(background_image, (0, 0))
+
+    # 🌫️ Fog that thickens with each wave
+    fog_surface = pygame.Surface((window_width, window_height))
+    fog_alpha = min(60 + wave * 5, 200)
+    fog_surface.set_alpha(fog_alpha)
+    fog_surface.fill((100, 100, 100))
+    screen.blit(fog_surface, (0, 0))
+
+    # Game logic
     if not game_over:
         if not endless_mode:
-            # Normal mode
             if zombies_spawned >= zombies_per_wave and not zombie_group:
                 if not countdown_active:
                     countdown_active = True
@@ -165,7 +197,6 @@ while running:
                     zombies_spawned += 1
                     last_zombie_spawn_time = now
         else:
-            # Endless mode: zombies spawn constantly
             if now - last_zombie_spawn_time >= zombie_spawn_interval:
                 spawn_pos = get_spawn_position_for_wave(wave, window_width, window_height)
                 is_boss = random.random() < 0.2
@@ -175,7 +206,6 @@ while running:
                 zombies_spawned += 1
                 last_zombie_spawn_time = now
 
-        # Update and logic
         all_sprites.update(dt)
         if not endless_mode:
             tree.damage_if_colliding(zombie_group)
@@ -183,12 +213,19 @@ while running:
                 game_over = True
                 final_wave_reached = wave
 
-    # Draw
+    # Draw sprites and UI
     all_sprites.draw(screen)
     if not endless_mode:
         tree.draw_ui(screen)
 
-    # Game Over screen
+    # Lightning flash overlay
+    if lightning_active:
+        lightning_overlay = pygame.Surface((window_width, window_height))
+        lightning_overlay.fill((255, 255, 255))
+        lightning_overlay.set_alpha(200)
+        screen.blit(lightning_overlay, (0, 0))
+
+    # Game Over UI
     if game_over:
         overlay = pygame.Surface((window_width, window_height))
         overlay.set_alpha(180)
@@ -211,3 +248,4 @@ while running:
         screen.blit(quit_info, quit_info.get_rect(center=(window_width // 2, window_height // 2 + 160)))
 
     pygame.display.flip()
+
