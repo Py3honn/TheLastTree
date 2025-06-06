@@ -37,7 +37,22 @@ lightning_flash_duration = 100
 # Zombie sound vars
 next_zombie_sound_time = pygame.time.get_ticks() + random.randint(3000, 8000)
 
-# Sprites
+# Start message
+start_message_displayed = True
+start_message_start_time = pygame.time.get_ticks()
+start_message_duration = 3000  # 3 seconds
+
+# Fonts
+font = pygame.font.SysFont(None, 48)
+font_small = pygame.font.SysFont(None, 36)
+
+# Score system
+score = 0
+def add_score(points):
+    global score
+    score += points
+
+# Sprite sheets
 sprite_sheets = {
     "down": pygame.image.load("/home/aashug/dev/TheLastTree/code/assets/character/Walk/walk_down.png").convert_alpha(),
     "up": pygame.image.load("/home/aashug/dev/TheLastTree/code/assets/character/Walk/walk_up.png").convert_alpha(),
@@ -58,10 +73,9 @@ idle_sheets = {
     "right_up": pygame.image.load("/home/aashug/dev/TheLastTree/code/assets/character/Idle/idle_right_up.png").convert_alpha(),
     "right_down": pygame.image.load("/home/aashug/dev/TheLastTree/code/assets/character/Idle/idle_right_down.png").convert_alpha(),
 }
-
 zombie_sheets = {
     "down": pygame.image.load("/home/aashug/dev/TheLastTree/code/assets/zombie/zombie_down.png").convert_alpha(),
-    "up": pygame.image.load("/home/aashug/dev/TheLastTree/code/assets/zombie/zombie_up.png").convert_alpha(),   
+    "up": pygame.image.load("/home/aashug/dev/TheLastTree/code/assets/zombie/zombie_up.png").convert_alpha(),
     "left": pygame.image.load("/home/aashug/dev/TheLastTree/code/assets/zombie/zombie_left_down.png").convert_alpha(),
     "right": pygame.image.load("/home/aashug/dev/TheLastTree/code/assets/zombie/zombie_right_down.png").convert_alpha(),
     "left_up": pygame.image.load("/home/aashug/dev/TheLastTree/code/assets/zombie/zombie_left_up.png").convert_alpha(),
@@ -70,7 +84,7 @@ zombie_sheets = {
     "right_down": pygame.image.load("/home/aashug/dev/TheLastTree/code/assets/zombie/zombie_right_down.png").convert_alpha(),
 }
 
-# Sprite groups
+#sprite groups
 all_sprites = pygame.sprite.Group()
 barriers = pygame.sprite.Group()
 zombie_group = pygame.sprite.Group()
@@ -83,43 +97,42 @@ zombie_spawn_interval = 1000
 last_zombie_spawn_time = 0
 wave_start_time = pygame.time.get_ticks()
 time_between_waves = 5000
-font = pygame.font.SysFont(None, 48)
 countdown_active = False
 
 game_over = False
 endless_mode = False
 final_wave_reached = 0
 
+# Tree and player
 def create_tree():
     global tree, barrier
     tree = Tree(all_sprites, tree_image, position=(window_width // 2, window_height // 2 - 100), scale=1.5)
-    barrier_rect = pygame.Rect(0, 0, 90, 112)
+    barrier_rect = pygame.Rect(0, 0, 80, 107)
     barrier_rect.center = tree.rect.center
     barrier = Barrier([all_sprites, barriers], barrier_rect)
 
 create_tree()
 
-# Create player
-player = Player(all_sprites, window_width, window_height, sprite_sheets, idle_sheets, barriers, zombie_group, slash_sound)
+player = Player(all_sprites, window_width, window_height, sprite_sheets, idle_sheets, barriers, zombie_group, slash_sound, add_score)
 player.rect.centery += 150
 
 def get_spawn_position_for_wave(wave, window_width, window_height):
     margin = 50
-    if wave == 1:
-        return (random.randint(0, window_width), window_height + margin)
-    elif wave == 2:
-        return (-margin, random.randint(0, window_height))
-    elif wave == 3:
-        return (window_width + margin, random.randint(0, window_height))
-    elif wave == 4:
-        return (random.randint(0, window_width), -margin)
+    side = ["top", "bottom", "left", "right"]
+    if wave <= 4:
+        return {
+            1: (random.randint(0, window_width), window_height + margin),
+            2: (-margin, random.randint(0, window_height)),
+            3: (window_width + margin, random.randint(0, window_height)),
+            4: (random.randint(0, window_width), -margin)
+        }[wave]
     else:
-        side = random.choice(["top", "bottom", "left", "right"])
-        if side == "top":
+        direction = random.choice(side)
+        if direction == "top":
             return (random.randint(0, window_width), -margin)
-        elif side == "bottom":
+        elif direction == "bottom":
             return (random.randint(0, window_width), window_height + margin)
-        elif side == "left":
+        elif direction == "left":
             return (-margin, random.randint(0, window_height))
         else:
             return (window_width + margin, random.randint(0, window_height))
@@ -129,20 +142,21 @@ while running:
     dt = clock.tick(60) / 1000
     now = pygame.time.get_ticks()
 
-    # Lightning logic
+    # Lightning
     if now - last_lightning_time >= lightning_interval:
         lightning_active = True
         lightning_start_time = now
         last_lightning_time = now
         lightning_interval = random.randint(5000, 15000)
-        for zombie in zombie_group:
-            zombie.take_damage(10)
+        for zombie in list(zombie_group):
+            if zombie.take_damage(10):
+                add_score(50 if zombie.is_boss else 5)
 
     if lightning_active and now - lightning_start_time > lightning_flash_duration:
         lightning_active = False
         thunder_sound.play()
 
-    # Zombie sound logic
+    # Zombie sound
     if zombie_group and now >= next_zombie_sound_time:
         zombie_sound.play()
         next_zombie_sound_time = now + random.randint(3000, 8000)
@@ -163,8 +177,9 @@ while running:
                     countdown_active = False
                     game_over = False
                     endless_mode = False
+                    score = 0
                     create_tree()
-                    player = Player(all_sprites, window_width, window_height, sprite_sheets, idle_sheets, barriers, zombie_group, slash_sound)
+                    player = Player(all_sprites, window_width, window_height, sprite_sheets, idle_sheets, barriers, zombie_group, slash_sound, add_score)
                     player.rect.centery += 150
                 elif event.key == pygame.K_e:
                     all_sprites.empty()
@@ -174,11 +189,13 @@ while running:
                     endless_mode = True
                     wave = final_wave_reached
                     zombies_spawned = 0
-                    player = Player(all_sprites, window_width, window_height, sprite_sheets, idle_sheets, barriers, zombie_group, slash_sound)
+                    score = 0
+                    player = Player(all_sprites, window_width, window_height, sprite_sheets, idle_sheets, barriers, zombie_group, slash_sound, add_score)
                     player.rect.centery += 150
                 elif event.key == pygame.K_ESCAPE:
                     running = False
 
+    # Drawing
     screen.blit(background_image, (0, 0))
 
     fog_surface = pygame.Surface((window_width, window_height))
@@ -233,17 +250,31 @@ while running:
     if not endless_mode:
         tree.draw_ui(screen)
 
+    # Draw Score
+    score_text = font_small.render(f"Score: {score}", True, (255, 255, 255))
+    screen.blit(score_text, (window_width - score_text.get_width() - 20, 20))
+
+    # Start Message
+    if start_message_displayed:
+        if now - start_message_start_time < start_message_duration:
+            message = font.render("Protect the Tree!", True, (255, 255, 0))
+            screen.blit(message, message.get_rect(center=(window_width // 2, 80)))
+        else:
+            start_message_displayed = False
+
+    # Lightning overlay
     if lightning_active:
         lightning_overlay = pygame.Surface((window_width, window_height))
         lightning_overlay.fill((255, 255, 255))
         lightning_overlay.set_alpha(200)
+     
         screen.blit(lightning_overlay, (0, 0))
-
+    #game over logic
     if game_over:
         overlay = pygame.Surface((window_width, window_height))
         overlay.set_alpha(180)
         game_over_sound.play()
-        overlay.fill((0, 0, 0))                              
+        overlay.fill((0, 0, 0))
         screen.blit(overlay, (0, 0))
 
         message = font.render("The Last Tree Has Fallen...", True, (255, 50, 50))
@@ -252,13 +283,18 @@ while running:
         wave_info = font.render(f"You reached Wave {final_wave_reached}", True, (255, 255, 255))
         screen.blit(wave_info, wave_info.get_rect(center=(window_width // 2, window_height // 2)))
 
+        score_info = font.render(f"Final Score: {score}", True, (255, 255, 255))
+        screen.blit(score_info, score_info.get_rect(center=(window_width // 2, window_height // 2 + 30)))
+
         restart_info = font.render("Press R to Restart", True, (255, 255, 255))
-        screen.blit(restart_info, restart_info.get_rect(center=(window_width // 2, window_height // 2 + 60)))
+        screen.blit(restart_info, restart_info.get_rect(center=(window_width // 2, window_height // 2 + 80)))
 
         endless_info = font.render("Press E for Endless Mode", True, (200, 200, 200))
-        screen.blit(endless_info, endless_info.get_rect(center=(window_width // 2, window_height // 2 + 110)))
+        screen.blit(endless_info, endless_info.get_rect(center=(window_width // 2, window_height // 2 + 130)))
 
         quit_info = font.render("Press ESC to Quit", True, (180, 180, 180))
-        screen.blit(quit_info, quit_info.get_rect(center=(window_width // 2, window_height // 2 + 160)))
+        screen.blit(quit_info, quit_info.get_rect(center=(window_width // 2, window_height // 2 + 180)))
 
     pygame.display.flip()
+
+pygame.quit()

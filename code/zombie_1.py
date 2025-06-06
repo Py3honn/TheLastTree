@@ -24,6 +24,9 @@ class Zombie(pygame.sprite.Sprite):
         self.image = self.frames[self.direction][0]
         self.rect = self.image.get_rect(center=position)
 
+        self.is_boss = is_boss
+        self.just_died = False  # Flag to track if this zombie just died (for scoring)
+
     def load_all_frames(self, sheets):
         all_frames = {}
         for direction, sheet in sheets.items():
@@ -84,5 +87,8 @@ class Zombie(pygame.sprite.Sprite):
 
     def take_damage(self, amount):
         self.hp -= amount
-        if self.hp <= 0:
+        if self.hp <= 0 and not self.just_died:
+            self.just_died = True
             self.kill()
+            return True  # Tell caller it died
+        return False
