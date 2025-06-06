@@ -1,13 +1,15 @@
 import pygame
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, groups, window_width, window_height, sprite_sheets, idle_sheets, barriers, zombies):
+    def __init__(self, groups, window_width, window_height, sprite_sheets, idle_sheets, barriers, zombies, sound):
         super().__init__(groups)
 
         self.frame_width = 48
         self.frame_height = 64
-        self.scale = 1.5
+        self.scale = 2.5
         self.colorkey = (0, 0, 0)
+
+        self.sound = sound
 
         self.animation_time = 100
         self.speed = 200
@@ -101,6 +103,7 @@ class Player(pygame.sprite.Sprite):
             if self.can_attack:
                 self.can_attack = False
                 attack_range = 80
+                self.sound.play()
                 attack_damage = 10
                 for zombie in self.zombies:
                     dx = self.rect.centerx - zombie.rect.centerx
